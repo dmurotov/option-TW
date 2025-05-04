@@ -5,7 +5,7 @@ import yfinance as yf
 from PIL import Image, ImageTk
 import requests
 from io import BytesIO
-import streamlit as st
+#import streamlit as st
 
 # Функция для получения данных для произвольного тикера
 def get_data(ticker):
