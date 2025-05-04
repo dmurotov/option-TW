@@ -1,8 +1,8 @@
+streamlit
 yfinance
 pandas
-plotly
 requests
 Pillow
 matplotlib
-streamlit
+plotly
 
