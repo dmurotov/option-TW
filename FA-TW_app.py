@@ -3,10 +3,9 @@ import yfinance as yf
 import requests
 from io import BytesIO
 from PIL import Image as PILImage
-from IPython.display import display, clear_output
-import ipywidgets as widgets
-import plotly.graph_objects as go
 import matplotlib.pyplot as plt
+import plotly.graph_objects as go
+import streamlit as st  # если ты используешь Streamlit
 
 # Получение данных (заглушка)
 def get_data(ticker):
