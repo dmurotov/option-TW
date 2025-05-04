@@ -103,7 +103,24 @@ if ticker:
             st.warning("Не удалось загрузить логотип.")
 
         # Quant Rating (заглушка)
-        st.markdown(f"**📈 Quant Rating:** `Buy (4.2)`")
+quant_rating_data = (4.2, "Buy", "green")
+print(f"\n📈 Quant Rating: {quant_rating_data[1]} ({quant_rating_data[0]:.2f})")
 
+# Показ логотипа через Clearbit по домену сайта
+try:
+    stock = yf.Ticker(ticker)
+    info = stock.info
+    website = info.get("website", "")
+    domain = website.replace("https://", "").replace("http://", "").split("/")[0] if website else ""
+    logo_url = f"https://logo.clearbit.com/{domain}" if domain else ""
+
+    if logo_url:
+        response = requests.get(logo_url, timeout=3)
+        img = PILImage.open(BytesIO(response.content))
+        plt.imshow(img)
+        plt.axis('off')
+        plt.show()
     else:
-        st.error("Не удалось получить данные.")
+        print("ℹ️ Логотип не найден: сайт компании отсутствует в данных.")
+except Exception as e:
+    print("❗ Ошибка при загрузке логотипа:", str(e))
