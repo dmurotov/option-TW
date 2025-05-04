@@ -1,11 +1,9 @@
-import tkinter as tk
-from tkinter import ttk, messagebox, filedialog
+import streamlit as st
 import pandas as pd
 import yfinance as yf
-from PIL import Image, ImageTk
 import requests
+from PIL import Image
 from io import BytesIO
-#import streamlit as st
 
 # Функция для получения данных для произвольного тикера
 def get_data(ticker):
@@ -60,26 +58,10 @@ def get_data(ticker):
     ]
         return data
     except Exception as e:
-        messagebox.showerror("Ошибка", f"Не удалось получить данные для тикера {ticker}. Ошибка: {str(e)}")
+        st.error(f"Не удалось получить данные для тикера {ticker}. Ошибка: {str(e)}")
         return None
 
-# Функция для получения оценки на основе значения
-def get_rating(value):
-    try:
-        if value == "Н/Д":
-            return "🔵 Нейтрально"
-        if isinstance(value, (int, float)):
-            if value < 10:
-                return "🟢 Хорошо"
-            elif value < 20:
-                return "🟡 Нейтрально"
-            else:
-                return "🔴 Плохо"
-        return "🔵 Нейтрально"
-    except:
-        return "🔵 Нейтрально"
-
-# Quant Rating функции
+# Функции для расчёта Quant Rating
 def get_stock_factors(ticker):
     stock = yf.Ticker(ticker)
     info = stock.info
@@ -90,11 +72,7 @@ def get_stock_factors(ticker):
     momentum = min((info.get("52WeekChange") or 0.2) * 25, 5)
     eps_revisions = min((info.get("earningsQuarterlyGrowth") or 0.2) * 25, 5)
 
-    website = info.get("website", "")
-    domain = website.replace("https://", "").replace("http://", "").split("/")[0] if website else ""
-    logo_url = f"https://logo.clearbit.com/{domain}" if domain else ""
-
-    return value, growth, profitability, momentum, eps_revisions, logo_url
+    return value, growth, profitability, momentum, eps_revisions
 
 def get_rating_label(quant_rating):
     if 4.5 <= quant_rating <= 5.0:
@@ -110,102 +88,34 @@ def get_rating_label(quant_rating):
 
 def calculate_quant_rating(ticker):
     try:
-        value, growth, profitability, momentum, eps_revisions, logo_url = get_stock_factors(ticker)
+        value, growth, profitability, momentum, eps_revisions = get_stock_factors(ticker)
 
         quant_rating = round(
             (value + growth + profitability + momentum + eps_revisions) / 5, 2
         )
         label, color = get_rating_label(quant_rating)
-        return quant_rating, label, color, logo_url
+        return quant_rating, label, color
     except Exception as e:
-        return 0, f"Ошибка: {e}", "black", ""
+        return 0, f"Ошибка: {e}", "black"
 
-# UI-функции
-def show_results(data, quant_rating_data):
-    win = tk.Toplevel(root)
-    win.title("Результаты анализа")
-    win.geometry("950x650")
+# Streamlit интерфейс
+st.title("Анализ акций и Quant Rating")
 
-    tree = ttk.Treeview(win, columns=("Показатель", "Значение", "Оценка"), show="headings", selectmode="browse")
-    tree.heading("Показатель", text="Показатель")
-    tree.heading("Значение", text="Значение")
-    tree.heading("Оценка", text="Оценка")
-    tree.column("Показатель", width=300)
-    tree.column("Значение", width=200)
-    tree.column("Оценка", width=150)
-    tree.pack(fill=tk.BOTH, expand=True)
+ticker = st.text_input("Введите тикер:", "")
 
-    tree.tag_configure("good", background="lightgreen")
-    tree.tag_configure("neutral_yellow", background="lightyellow")
-    tree.tag_configure("neutral_blue", background="lightblue")
-    tree.tag_configure("bad", background="lightcoral")
+if st.button("Анализировать"):
+    if ticker:
+        data = get_data(ticker)
+        quant_data = calculate_quant_rating(ticker)
+        
+        if data:
+            # Отображаем данные
+            df = pd.DataFrame(data)
+            st.write(df)
 
-    def get_tag(grade):
-        if "Плохо" in grade:
-            return "bad"
-        elif "Нейтрально" in grade:
-            if grade.startswith("🟡"):
-                return "neutral_yellow"
-            elif grade.startswith("🔵"):
-                return "neutral_blue"
-            else:
-                return "neutral_yellow"
-        elif "Хорошо" in grade:
-            return "good"
-        else:
-            return ""
-
-    for item in data:
-        tag = get_tag(item["Оценка"])
-        tree.insert("", tk.END, values=(item["Показатель"], item["Значение"], item["Оценка"]), tags=(tag,))
-
-    quant_label = ttk.Label(win, text=f"Quant Rating: {quant_rating_data[1]} ({quant_rating_data[0]:.2f})", font=("Helvetica", 14), foreground=quant_rating_data[2])
-    quant_label.pack(pady=10)
-
-    if quant_rating_data[3]:
-        try:
-            response = requests.get(quant_rating_data[3])
-            img = Image.open(BytesIO(response.content)).resize((100, 100), Image.Resampling.LANCZOS)
-            logo_img = ImageTk.PhotoImage(img)
-            logo_label = ttk.Label(win, image=logo_img)
-            logo_label.image = logo_img
-            logo_label.pack(pady=5)
-        except:
-            pass
-
-    def save_to_excel():
-        df = pd.DataFrame(data)
-        file_path = filedialog.asksaveasfilename(defaultextension=".xlsx", filetypes=[("Excel files", "*.xlsx")])
-        if file_path:
-            try:
-                df.to_excel(file_path, index=False)
-                messagebox.showinfo("Успех", f"Сохранено: {file_path}")
-            except Exception as e:
-                messagebox.showerror("Ошибка", f"Ошибка при сохранении: {str(e)}")
-
-    ttk.Button(win, text="Сохранить в Excel", command=save_to_excel).pack(pady=10)
-
-# Основной интерфейс
-root = tk.Tk()
-root.title("Анализ акций и Quant Rating")
-
-frame = ttk.Frame(root, padding=10)
-frame.grid(row=0, column=0, padx=10, pady=10)
-
-ttk.Label(frame, text="Введите тикер:").grid(row=0, column=0, sticky="w")
-ticker_entry = ttk.Entry(frame, width=20)
-ticker_entry.grid(row=0, column=1, padx=10)
-
-def on_analyze_click():
-    ticker = ticker_entry.get().strip().upper()
-    if not ticker:
-        messagebox.showwarning("Внимание", "Введите тикер!")
-        return
-    data = get_data(ticker)
-    quant_data = calculate_quant_rating(ticker)
-    if data:
-        show_results(data, quant_data)
-
-ttk.Button(frame, text="Анализировать", command=on_analyze_click).grid(row=1, column=0, columnspan=2, pady=10)
-
-root.mainloop()
+            # Отображаем Quant Rating
+            quant_label, quant_color = quant_data[1], quant_data[2]
+            st.markdown(f"**Quant Rating: {quant_label} ({quant_data[0]:.2f})**", unsafe_allow_html=True)
+            st.markdown(f'<span style="color:{quant_color}">{quant_label}</span>', unsafe_allow_html=True)
+    else:
+        st.warning("Пожалуйста, введите тикер.")
